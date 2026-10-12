@@ -1,27 +1,38 @@
 Smart Gate Control System (ESP32)
 
-An automated gate that opens when motion is detected and can be overridden with a pushbutton. Built for the Computing Things (IoT) module at the University of Hertfordshire.
+An automated gate that opens when someone approaches and can be opened manually with a button. Built in C++ for the Computing Things (IoT) module at the University of Hertfordshire.
 
 
-How it works
-A PIR motion sensor detects someone approaching the gate.
-The ESP32 reads the sensor and drives a servo motor to open the gate.
-After a set delay with no motion, the gate closes again.
-A pushbutton gives a manual override.
-Hardware
-Part	Purpose
-ESP32 dev board	Microcontroller running the logic
-PIR motion sensor	Detects people approaching
-Servo motor	Opens and closes the gate
-Pushbutton	Manual override
-Testing and debugging
+What it does
+Motion opens the gate: when the PIR sensor detects someone, the servo swings the gate open to 90°.
+Button override: pressing the pushbutton opens the gate manually.
+Auto close: the gate closes by itself after 10 seconds with no new activity.
+Smart extend: if someone is still there (new motion or a button press) while the gate is open, the 10 second timer restarts, so the gate never closes on them.
+Hardware and wiring
+Part	ESP32 pin	Purpose
+Servo motor (signal)	GPIO 18	Opens and closes the gate
+PIR motion sensor (output)	GPIO 23	Detects people approaching
+Pushbutton	GPIO 19 (internal pull up, other leg to GND)	Manual override
+How the code works
+Non blocking timing with millis(): I used millis() instead of delay(), so the ESP32 keeps checking the sensor and button the whole time the gate is open. With delay(), the board would freeze and miss new events.
+Edge detection on the PIR: the code reacts only when the sensor changes from LOW to HIGH, not every loop while it stays HIGH, so one person triggers one event.
+Button debouncing (50 ms): physical buttons "bounce" and can register several presses from one push. The code only accepts a button state once it has been stable for 50 ms.
+Spam protection: an extendUsed flag stops the serial monitor being flooded with "extending time" messages while someone holds the button or keeps moving.
+Serial logging: every event (PIR triggered, opening, extending, closing) is printed at 115200 baud, which made testing and debugging much easier.
+Testing
 
-I simulated the full circuit in Wokwi before building it, then tested each behaviour (motion opens the gate, timed close, button override) and refined the logic through structured debugging. The design, test cases and evaluation are in the technical report in this repository.
+I simulated the full circuit in Wokwi before building it, then tested each behaviour:
 
-What I learned
-Writing embedded C++ that reacts to real time sensor input
-Testing in simulation before touching hardware
-Documenting design decisions and test results clearly
+Test	Expected result
+Trigger the PIR sensor	Gate opens to 90° and "Gate Opening" is logged
+Wait 10 seconds with no activity	Gate closes to 0° and "Gate Closing" is logged
+Trigger motion while the gate is open	Timer restarts, gate stays open
+Press the button	Gate opens manually
+Hold or tap the button rapidly	Debounce stops false triggers
+
+Each test was checked against the serial monitor output, which logs every event.
+
 Tech
 
-C++ · ESP32 · Arduino framework · Wokwi
+C++ · ESP32 · Arduino framework · ESP32Servo library · Wokwi
+
